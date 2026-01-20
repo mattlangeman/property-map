@@ -273,8 +273,8 @@
 		const isVideo = Photo.isVideo(photo);
 		const duration = Photo.formatDuration(photo);
 
-		// For videos, use thumbnail for the popup preview
-		const previewUrl = isVideo && photo.thumbnailUrl ? photo.thumbnailUrl : photo.url;
+		// Use thumbnail for faster popup preview loading, fall back to full url
+		const previewUrl = photo.thumbnailUrl ?? photo.url;
 
 		let html = '<div class="photo-popup-content">';
 

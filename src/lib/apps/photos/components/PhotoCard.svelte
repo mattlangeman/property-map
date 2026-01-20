@@ -20,8 +20,8 @@
 	const isVideo = $derived(Photo.isVideo(photo));
 	const duration = $derived(Photo.formatDuration(photo));
 
-	// For videos, prefer thumbnailUrl, fall back to url
-	const thumbnailSrc = $derived(isVideo && photo.thumbnailUrl ? photo.thumbnailUrl : photo.url);
+	// Prefer thumbnailUrl for faster loading, fall back to full url
+	const thumbnailSrc = $derived(photo.thumbnailUrl ?? photo.url);
 </script>
 
 <button

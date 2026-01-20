@@ -23,7 +23,7 @@ const STORAGE_BUCKET = 'photos';
 export const PhotoService = {
 	/**
 	 * Upload a photo/video file to storage and create a database record.
-	 * For videos, also uploads a thumbnail image.
+	 * Optionally uploads a thumbnail for faster previews.
 	 * Requires can_upload permission.
 	 */
 	async upload(

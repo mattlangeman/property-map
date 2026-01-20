@@ -87,6 +87,74 @@
 		input.value = '';
 	}
 
+	// Thumbnail settings
+	const THUMBNAIL_MAX_SIZE = 400; // Max width or height in pixels
+	const THUMBNAIL_QUALITY = 0.85;
+
+	/**
+	 * Generate a thumbnail for an image file.
+	 * Resizes to fit within THUMBNAIL_MAX_SIZE while maintaining aspect ratio.
+	 */
+	async function generateImageThumbnail(file: File): Promise<Blob> {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			const url = URL.createObjectURL(file);
+
+			img.onload = () => {
+				// Calculate thumbnail dimensions maintaining aspect ratio
+				let width = img.width;
+				let height = img.height;
+
+				if (width > height) {
+					if (width > THUMBNAIL_MAX_SIZE) {
+						height = Math.round((height * THUMBNAIL_MAX_SIZE) / width);
+						width = THUMBNAIL_MAX_SIZE;
+					}
+				} else {
+					if (height > THUMBNAIL_MAX_SIZE) {
+						width = Math.round((width * THUMBNAIL_MAX_SIZE) / height);
+						height = THUMBNAIL_MAX_SIZE;
+					}
+				}
+
+				// Create canvas and draw resized image
+				const canvas = document.createElement('canvas');
+				canvas.width = width;
+				canvas.height = height;
+
+				const ctx = canvas.getContext('2d');
+				if (!ctx) {
+					URL.revokeObjectURL(url);
+					reject(new Error('Failed to get canvas context'));
+					return;
+				}
+
+				ctx.drawImage(img, 0, 0, width, height);
+
+				// Convert to JPEG blob
+				canvas.toBlob(
+					(blob) => {
+						URL.revokeObjectURL(url);
+						if (!blob) {
+							reject(new Error('Failed to create thumbnail blob'));
+							return;
+						}
+						resolve(blob);
+					},
+					'image/jpeg',
+					THUMBNAIL_QUALITY
+				);
+			};
+
+			img.onerror = () => {
+				URL.revokeObjectURL(url);
+				reject(new Error('Failed to load image'));
+			};
+
+			img.src = url;
+		});
+	}
+
 	/**
 	 * Extract video metadata and generate thumbnail from first frame.
 	 */
@@ -205,19 +273,31 @@
 					}
 				} else {
 					// Process image
-					const exifData = await extractExifData(file);
-					const strippedFile = await stripExifData(file);
-					const preview = URL.createObjectURL(strippedFile);
+					try {
+						console.log('[PhotoUploader] Processing image:', file.name, file.size, file.type);
+						const exifData = await extractExifData(file);
+						const strippedFile = await stripExifData(file);
 
-					uploadedFiles.push({
-						file,
-						strippedFile,
-						exifData,
-						preview,
-						mediaType: 'photo',
-						duration: null,
-						thumbnailBlob: null
-					});
+						// Generate thumbnail from the stripped file
+						const thumbnailBlob = await generateImageThumbnail(strippedFile);
+						console.log('[PhotoUploader] Image processed. Thumbnail size:', thumbnailBlob.size);
+
+						// Use thumbnail for preview (faster rendering)
+						const preview = URL.createObjectURL(thumbnailBlob);
+
+						uploadedFiles.push({
+							file,
+							strippedFile,
+							exifData,
+							preview,
+							mediaType: 'photo',
+							duration: null,
+							thumbnailBlob
+						});
+					} catch (err) {
+						console.error('[PhotoUploader] Error processing image:', err);
+						uploadError = `Failed to process image "${file.name}"`;
+					}
 				}
 			}
 

@@ -49,7 +49,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 export const actions: Actions = {
 	/**
 	 * Upload a new photo or video.
-	 * Expects form data with file, metadata, and optional thumbnail (for videos).
+	 * Expects form data with file, metadata, and optional thumbnail.
 	 */
 	upload: async ({ request, locals }) => {
 		const { user } = await locals.safeGetSession();
