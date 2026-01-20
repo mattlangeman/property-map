@@ -13,6 +13,7 @@
 		photos: PhotoWithUrl[];
 		selectedPhotoId?: string | null;
 		editable?: boolean;
+		currentUserId?: string | null;
 		onPhotoSelect?: (photo: PhotoWithUrl) => void;
 		onPhotoMove?: (photoId: string, lat: number, lng: number) => void;
 		onPhotoUpdate?: (photoId: string, lat: number, lng: number, bearing: number | null, dateTaken: string | null) => void;
@@ -23,11 +24,19 @@
 		photos,
 		selectedPhotoId = null,
 		editable = false,
+		currentUserId = null,
 		onPhotoSelect,
 		onPhotoMove,
 		onPhotoUpdate,
 		onMapClick
 	}: Props = $props();
+
+	/**
+	 * Check if the current user can edit a photo (i.e., owns it).
+	 */
+	function canEditPhoto(photo: PhotoWithUrl): boolean {
+		return editable && currentUserId !== null && Photo.canBeEditedBy(photo, currentUserId);
+	}
 
 	let mapContainer: HTMLDivElement;
 	let map: L.Map | null = null;
@@ -215,7 +224,7 @@
 
 		const marker = L.marker(coords, {
 			icon,
-			draggable: editable
+			draggable: canEditPhoto(photo)
 		});
 
 		// Bind popup with photo preview
@@ -234,8 +243,8 @@
 			}
 		});
 
-		// Drag handler for repositioning
-		if (editable && onPhotoMove) {
+		// Drag handler for repositioning (only for user's own photos)
+		if (canEditPhoto(photo) && onPhotoMove) {
 			marker.on('dragend', () => {
 				const position = marker.getLatLng();
 				onPhotoMove(photo.id, position.lat, position.lng);
@@ -327,8 +336,8 @@
 			Full Screen
 		</button>`;
 
-		// Edit button
-		if (editable) {
+		// Edit button (only for user's own photos)
+		if (canEditPhoto(photo)) {
 			html += `<button class="photo-popup-action-btn photo-popup-edit-btn" data-photo-id="${photo.id}">
 				<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
@@ -471,6 +480,10 @@
 		const photo = photos.find(p => p.id === photoId);
 		if (!photo) {
 			console.log('[PhotoMap] Photo not found in list');
+			return;
+		}
+		if (!canEditPhoto(photo)) {
+			console.log('[PhotoMap] User cannot edit this photo');
 			return;
 		}
 		if (!map || !L) {

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, PhotoRow } from '$lib/db/types';
 import { ServiceError } from '$lib/shared/service-errors';
+import { UserProfileService } from '$lib/apps/users';
 import {
 	PhotoCreateSchema,
 	PhotoUpdateSchema,
@@ -23,6 +24,7 @@ export const PhotoService = {
 	/**
 	 * Upload a photo/video file to storage and create a database record.
 	 * For videos, also uploads a thumbnail image.
+	 * Requires can_upload permission.
 	 */
 	async upload(
 		supabase: SupabaseClient<Database>,
@@ -34,6 +36,12 @@ export const PhotoService = {
 		userId: string,
 		thumbnailFile?: File | null
 	): Promise<PhotoRow> {
+		// Check upload permission
+		const canUpload = await UserProfileService.canUpload(supabase, userId);
+		if (!canUpload) {
+			throw new ServiceError.NotAuthorized('You do not have permission to upload photos');
+		}
+
 		// Generate unique storage path
 		const timestamp = Date.now();
 		const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -112,17 +120,16 @@ export const PhotoService = {
 	},
 
 	/**
-	 * Get all photos for a user with signed URLs.
+	 * Get all photos with signed URLs.
+	 * All authenticated users can view all photos.
 	 */
 	async list(
 		supabase: SupabaseClient<Database>,
-		userId: string,
 		options: PhotoListOptions = {}
 	): Promise<PhotoWithUrl[]> {
 		let query = supabase
 			.from(PHOTOS_TABLE)
 			.select('*')
-			.eq('user_id', userId)
 			.order('date_taken', { ascending: true, nullsFirst: false })
 			.order('created_at', { ascending: true });
 
@@ -166,13 +173,35 @@ export const PhotoService = {
 	},
 
 	/**
-	 * Get photos that need manual positioning.
+	 * Get photos that need manual positioning for a specific user.
+	 * Only returns the user's own photos since they can only edit their own.
 	 */
 	async getUnpositioned(
 		supabase: SupabaseClient<Database>,
 		userId: string
 	): Promise<PhotoWithUrl[]> {
-		return PhotoService.list(supabase, userId, { hasLocation: false });
+		const { data, error } = await supabase
+			.from(PHOTOS_TABLE)
+			.select('*')
+			.eq('user_id', userId)
+			.or('latitude.is.null,longitude.is.null')
+			.order('date_taken', { ascending: true, nullsFirst: false })
+			.order('created_at', { ascending: true });
+
+		if (error) {
+			throw new Error(`Database error: ${error.message}`);
+		}
+
+		const photos = data as PhotoRow[];
+		const photosWithUrls = await Promise.all(
+			photos.map(async (photo) => {
+				const url = await PhotoService.getSignedUrl(supabase, photo);
+				const thumbnailUrl = await PhotoService.getThumbnailSignedUrl(supabase, photo);
+				return { ...photo, url, thumbnailUrl };
+			})
+		);
+
+		return photosWithUrls;
 	},
 
 	/**

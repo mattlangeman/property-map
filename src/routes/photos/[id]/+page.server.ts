@@ -15,12 +15,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		throw error(404, 'Photo not found');
 	}
 
-	if (!Photo.canBeEditedBy(photo, user.id)) {
-		throw error(403, 'Not authorized to view this photo');
-	}
+	// All authenticated users can view any photo
+	// Only the owner can edit/delete
+	const canEdit = Photo.canBeEditedBy(photo, user.id);
 
 	return {
-		photo
+		photo,
+		canEdit
 	};
 };
 

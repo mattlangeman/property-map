@@ -52,15 +52,17 @@
 				Back to Map
 			</a>
 
-			<div class="flex items-center gap-2">
-				<button
-					type="button"
-					class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-					onclick={() => (isEditing = !isEditing)}
-				>
-					{isEditing ? 'Cancel' : 'Edit'}
-				</button>
-			</div>
+			{#if data.canEdit}
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+						onclick={() => (isEditing = !isEditing)}
+					>
+						{isEditing ? 'Cancel' : 'Edit'}
+					</button>
+				</div>
+			{/if}
 		</div>
 	</header>
 
@@ -111,7 +113,7 @@
 
 			<!-- Details -->
 			<div class="space-y-6">
-				{#if isEditing}
+				{#if data.canEdit && isEditing}
 					<form
 						method="POST"
 						action="?/update"
@@ -218,49 +220,51 @@
 					</div>
 				{/if}
 
-				<!-- Delete section -->
-				<div class="border-t pt-6">
-					<h3 class="text-sm font-medium text-destructive">Danger Zone</h3>
-					<p class="mt-1 text-sm text-muted-foreground">
-						Permanently delete this photo. This action cannot be undone.
-					</p>
+				<!-- Delete section - only shown to owner -->
+				{#if data.canEdit}
+					<div class="border-t pt-6">
+						<h3 class="text-sm font-medium text-destructive">Danger Zone</h3>
+						<p class="mt-1 text-sm text-muted-foreground">
+							Permanently delete this photo. This action cannot be undone.
+						</p>
 
-					{#if isDeleting}
-						<form
-							method="POST"
-							action="?/delete"
-							use:enhance
-							class="mt-4"
-						>
-							<p class="mb-3 text-sm font-medium">
-								Are you sure you want to delete this photo?
-							</p>
-							<div class="flex gap-2">
-								<button
-									type="submit"
-									class="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
-								>
-									Yes, Delete
-								</button>
-								<button
-									type="button"
-									class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-									onclick={() => (isDeleting = false)}
-								>
-									Cancel
-								</button>
-							</div>
-						</form>
-					{:else}
-						<button
-							type="button"
-							class="mt-4 inline-flex items-center justify-center rounded-md border border-destructive bg-background px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
-							onclick={() => (isDeleting = true)}
-						>
-							Delete Photo
-						</button>
-					{/if}
-				</div>
+						{#if isDeleting}
+							<form
+								method="POST"
+								action="?/delete"
+								use:enhance
+								class="mt-4"
+							>
+								<p class="mb-3 text-sm font-medium">
+									Are you sure you want to delete this photo?
+								</p>
+								<div class="flex gap-2">
+									<button
+										type="submit"
+										class="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
+									>
+										Yes, Delete
+									</button>
+									<button
+										type="button"
+										class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+										onclick={() => (isDeleting = false)}
+									>
+										Cancel
+									</button>
+								</div>
+							</form>
+						{:else}
+							<button
+								type="button"
+								class="mt-4 inline-flex items-center justify-center rounded-md border border-destructive bg-background px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+								onclick={() => (isDeleting = true)}
+							>
+								Delete Photo
+							</button>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</div>
 	</main>

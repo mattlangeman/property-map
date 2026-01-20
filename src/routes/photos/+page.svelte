@@ -44,7 +44,10 @@
 
 	// Get photos with and without locations
 	const positionedPhotos = $derived(data.photos.filter((p) => Photo.hasLocation(p)));
-	const unpositionedPhotos = $derived(data.photos.filter((p) => !Photo.hasLocation(p)));
+	// Only show the current user's unpositioned photos (they can only edit their own)
+	const unpositionedPhotos = $derived(
+		data.photos.filter((p) => !Photo.hasLocation(p) && p.user_id === data.currentUserId)
+	);
 
 	// Current unpositioned photo being placed
 	const currentPlacingPhoto = $derived(
@@ -73,8 +76,8 @@
 			setTimeout(() => {
 				mapComponent?.openPopup(photo.id);
 			}, 100);
-		} else {
-			// For unpositioned items, place at map center and enter edit mode
+		} else if (photo.user_id === data.currentUserId) {
+			// For unpositioned items that belong to current user, place at map center and enter edit mode
 			const defaultLat = parseFloat(PUBLIC_MAP_DEFAULT_LAT) || 44.514679;
 			const defaultLng = parseFloat(PUBLIC_MAP_DEFAULT_LNG) || -80.995797;
 
@@ -95,6 +98,7 @@
 				}, 200);
 			}, 100);
 		}
+		// For unpositioned photos from other users, just select them (no action possible)
 	}
 
 	// Separate function that returns a promise for positioning
@@ -246,29 +250,31 @@
 		</div>
 
 		<div class="flex items-center gap-2">
-			<button
-				type="button"
-				class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-				onclick={() => (showUploader = !showUploader)}
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					class="mr-2"
+			{#if data.canUpload}
+				<button
+					type="button"
+					class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+					onclick={() => (showUploader = !showUploader)}
 				>
-					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-					<polyline points="17 8 12 3 7 8" />
-					<line x1="12" x2="12" y1="3" y2="15" />
-				</svg>
-				Upload Photos
-			</button>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="mr-2"
+					>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="17 8 12 3 7 8" />
+						<line x1="12" x2="12" y1="3" y2="15" />
+					</svg>
+					Upload Photos
+				</button>
+			{/if}
 
 			<a
 				href="/"
@@ -285,7 +291,7 @@
 		<aside class="flex w-80 flex-col border-r bg-muted/30">
 			<!-- Photo list -->
 			<div bind:this={photoListContainer} class="flex-1 overflow-y-auto p-4">
-				{#if showUploader}
+				{#if data.canUpload && showUploader}
 					<div class="mb-4">
 						<h3 class="mb-2 text-sm font-medium">Upload Photos</h3>
 						<PhotoUploader onUpload={handleUpload} />
@@ -346,6 +352,7 @@
 				photos={data.photos}
 				selectedPhotoId={selectedPhoto?.id ?? null}
 				editable={true}
+				currentUserId={data.currentUserId}
 				onPhotoSelect={handlePhotoSelect}
 				onPhotoMove={handlePhotoMove}
 				onPhotoUpdate={handlePhotoUpdate}

@@ -10,6 +10,33 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
 	public: {
 		Tables: {
+			user_profiles: {
+				Row: {
+					id: string;
+					email: string;
+					display_name: string | null;
+					can_upload: boolean;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id: string;
+					email: string;
+					display_name?: string | null;
+					can_upload?: boolean;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: {
+					id?: string;
+					email?: string;
+					display_name?: string | null;
+					can_upload?: boolean;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Relationships: [];
+			};
 			photos: {
 				Row: {
 					id: string;
@@ -96,3 +123,7 @@ export interface Database {
 export type PhotoRow = Database['public']['Tables']['photos']['Row'];
 export type PhotoInsert = Database['public']['Tables']['photos']['Insert'];
 export type PhotoUpdate = Database['public']['Tables']['photos']['Update'];
+
+export type UserProfileRow = Database['public']['Tables']['user_profiles']['Row'];
+export type UserProfileInsert = Database['public']['Tables']['user_profiles']['Insert'];
+export type UserProfileUpdate = Database['public']['Tables']['user_profiles']['Update'];

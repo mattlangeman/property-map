@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { PhotoService } from '$lib/apps/photos';
+import { UserProfileService } from '$lib/apps/users';
 import { ServiceError } from '$lib/shared/service-errors';
 import {
 	PUBLIC_MAP_DEFAULT_LAT,
@@ -19,19 +20,24 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const startDate = url.searchParams.get('startDate') ?? undefined;
 	const endDate = url.searchParams.get('endDate') ?? undefined;
 
-	// Fetch photos with filters
-	const photos = await PhotoService.list(locals.supabase, user.id, {
+	// Fetch all photos (all authenticated users can view all photos)
+	const photos = await PhotoService.list(locals.supabase, {
 		hasLocation,
 		startDate,
 		endDate
 	});
 
-	// Get count of unpositioned photos
+	// Get count of current user's unpositioned photos (they can only edit their own)
 	const unpositionedCount = await PhotoService.getUnpositionedCount(locals.supabase, user.id);
+
+	// Check if current user has upload permission
+	const canUpload = await UserProfileService.canUpload(locals.supabase, user.id);
 
 	return {
 		photos,
 		unpositionedCount,
+		canUpload,
+		currentUserId: user.id,
 		filters: {
 			hasLocation: hasLocationParam === null ? null : hasLocationParam === 'true',
 			startDate: startDate ?? null,
@@ -106,6 +112,9 @@ export const actions: Actions = {
 			return { success: true, photoId: photo.id };
 		} catch (e) {
 			console.error('[Upload] Error:', e);
+			if (e instanceof ServiceError.NotAuthorized) {
+				return fail(403, { error: e.message });
+			}
 			if (e instanceof ServiceError.Storage) {
 				return fail(500, { error: e.message });
 			}
