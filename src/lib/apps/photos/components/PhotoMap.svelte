@@ -328,12 +328,21 @@
 		// Action buttons row
 		html += '<div class="photo-popup-actions">';
 
+		// Download button
+		html += `<button class="photo-popup-action-btn photo-popup-download-btn" data-photo-id="${photo.id}">
+			<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+				<polyline points="7 10 12 15 17 10"/>
+				<line x1="12" x2="12" y1="15" y2="3"/>
+			</svg>
+		</button>`;
+
 		// Expand button
 		html += `<button class="photo-popup-action-btn photo-popup-expand-text-btn" data-photo-id="${photo.id}">
 			<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/>
 			</svg>
-			Full Screen
+			View
 		</button>`;
 
 		// Edit button (only for user's own photos)
@@ -361,6 +370,24 @@
 			const popup = e.popup;
 			const content = popup.getElement();
 			if (!content) return;
+
+			// Download button listener
+			const downloadBtn = content.querySelector('.photo-popup-download-btn');
+			if (downloadBtn) {
+				downloadBtn.addEventListener('click', (event) => {
+					// Prevent event from bubbling to map/popup handlers
+					event.stopPropagation();
+					event.preventDefault();
+
+					const photoId = (event.currentTarget as HTMLElement).dataset.photoId;
+					if (photoId) {
+						const photo = photos.find(p => p.id === photoId);
+						if (photo) {
+							downloadPhoto(photo);
+						}
+					}
+				});
+			}
 
 			// Edit button listener
 			const editBtn = content.querySelector('.photo-popup-edit-btn');
@@ -392,6 +419,40 @@
 
 	function closeLightbox() {
 		lightboxPhoto = null;
+	}
+
+	let isDownloading = $state(false);
+
+	/**
+	 * Download a photo or video to the user's device.
+	 */
+	async function downloadPhoto(photo: PhotoWithUrl) {
+		if (!photo.url || isDownloading) return;
+
+		isDownloading = true;
+		try {
+			// Fetch the file as a blob
+			const response = await fetch(photo.url);
+			if (!response.ok) throw new Error('Failed to fetch file');
+
+			const blob = await response.blob();
+
+			// Create download link
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = photo.filename;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+
+			// Clean up
+			URL.revokeObjectURL(url);
+		} catch (err) {
+			console.error('Download failed:', err);
+		} finally {
+			isDownloading = false;
+		}
 	}
 
 	function createMarkerHtml(photo: PhotoWithUrl): string {
@@ -702,10 +763,10 @@
 	<!-- Edit Mode Controls -->
 	{#if isEditing && editingPhoto}
 		<div class="edit-panel">
-			<!-- Large photo preview -->
+			<!-- Photo preview (uses thumbnail for faster loading) -->
 			<div class="edit-panel-photo">
-				{#if editingPhoto.url}
-					<img src={editingPhoto.url} alt={Photo.getDisplayTitle(editingPhoto)} />
+				{#if editingPhoto.thumbnailUrl || editingPhoto.url}
+					<img src={editingPhoto.thumbnailUrl ?? editingPhoto.url} alt={Photo.getDisplayTitle(editingPhoto)} />
 				{:else}
 					<div class="edit-panel-photo-placeholder">
 						<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -779,11 +840,31 @@
 			role="button"
 			tabindex="-1"
 		>
-			<button class="lightbox-close" onclick={closeLightbox} aria-label="Close full screen view">
-				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-				</svg>
-			</button>
+			<div class="lightbox-controls">
+				<button
+					class="lightbox-btn"
+					onclick={(e) => { e.stopPropagation(); if (lightboxPhoto) downloadPhoto(lightboxPhoto); }}
+					aria-label="Download"
+					disabled={isDownloading}
+				>
+					{#if isDownloading}
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin">
+							<path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+						</svg>
+					{:else}
+						<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+							<polyline points="7 10 12 15 17 10"/>
+							<line x1="12" x2="12" y1="15" y2="3"/>
+						</svg>
+					{/if}
+				</button>
+				<button class="lightbox-btn" onclick={closeLightbox} aria-label="Close full screen view">
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+					</svg>
+				</button>
+			</div>
 			<div
 				class="lightbox-content"
 				role="presentation"
@@ -1118,6 +1199,12 @@
 		border-color: hsl(var(--primary) / 0.9);
 	}
 
+	:global(.photo-popup-download-btn) {
+		flex: 0 0 auto;
+		width: 36px;
+		padding: 8px;
+	}
+
 	/* Direction handle */
 	:global(.direction-handle-container) {
 		background: transparent !important;
@@ -1305,10 +1392,16 @@
 		cursor: pointer;
 	}
 
-	.lightbox-close {
+	.lightbox-controls {
 		position: absolute;
 		top: 16px;
 		right: 16px;
+		display: flex;
+		gap: 8px;
+		z-index: 10;
+	}
+
+	.lightbox-btn {
 		width: 44px;
 		height: 44px;
 		display: flex;
@@ -1322,8 +1415,17 @@
 		transition: background 0.15s ease;
 	}
 
-	.lightbox-close:hover {
+	.lightbox-btn:hover:not(:disabled) {
 		background: rgba(255, 255, 255, 0.2);
+	}
+
+	.lightbox-btn:disabled {
+		opacity: 0.5;
+		cursor: wait;
+	}
+
+	.lightbox-btn :global(.animate-spin) {
+		animation: spin 1s linear infinite;
 	}
 
 	.lightbox-content {
